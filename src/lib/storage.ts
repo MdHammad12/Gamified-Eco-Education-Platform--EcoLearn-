@@ -480,32 +480,6 @@ export async function getLeaderboard(schoolId?: string): Promise<LeaderboardEntr
   return leaderboard;
 }
 
-// Migrate existing users without passwords (for backward compatibility)
-async function migrateUsersWithoutPasswords(): Promise<void> {
-  const users = isSupabaseConfigured() ? await getAllUsers() : getAllUsersSync();
-  const defaultPassword = 'password123';
-  const hashedPassword = await hashPassword(defaultPassword);
-  let needsUpdate = false;
-
-  const migratedUsers = users.map(user => {
-    if (!user.password) {
-      needsUpdate = true;
-      return { ...user, password: hashedPassword };
-    }
-    return user;
-  });
-
-  if (needsUpdate) {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(migratedUsers));
-    // Also update current user if they don't have a password
-    const currentUser = getCurrentUser();
-    if (currentUser && !currentUser.password) {
-      const updatedCurrentUser = { ...currentUser, password: hashedPassword };
-      saveCurrentUser(updatedCurrentUser);
-    }
-  }
-}
-
 // Lessons Management
 export function getAllLessons(): Lesson[] {
   const data = localStorage.getItem(STORAGE_KEYS.LESSONS);
@@ -607,133 +581,13 @@ export function getChallengeById(challengeId: string): Challenge | undefined {
 
 // Initialize demo data
 export async function initializeDemoData(): Promise<void> {
-  // First, migrate any existing users without passwords
-  await migrateUsersWithoutPasswords();
-  
   // Initialize lessons, quizzes, and challenges if they don't exist
   getAllLessons();
   getAllQuizzes();
   getAllChallenges();
   
-  const existingUsers = isSupabaseConfigured() ? await getAllUsers() : getAllUsersSync();
-  if (existingUsers.length === 0) {
-    await seedDemoUsers();
-  } else {
-    await ensureDefaultSuperAdmin();
-  }
-
+  // Normalize super admins to ensure they have correct platform school ID
   await normalizeSuperAdmins();
-}
-
-async function seedDemoUsers(): Promise<void> {
-  const defaultPassword = 'password123';
-  const hashedPassword = await hashPassword(defaultPassword);
-
-  const demoUsers: User[] = [
-    {
-      id: 'demo-super-admin-1',
-      name: 'EcoLearn Super Admin',
-      email: 'superadmin@ecolearn.com',
-      password: hashedPassword,
-      role: 'super_admin',
-      schoolId: PLATFORM_SCHOOL_ID,
-      schoolName: PLATFORM_SCHOOL_NAME,
-      ecoPoints: 0,
-      level: 1,
-      badges: [],
-      completedLessons: [],
-      completedQuizzes: [],
-      completedChallenges: [],
-      createdAt: new Date().toISOString(),
-      status: 'active',
-    },
-    {
-      id: 'demo-student-1',
-      name: 'Rahul Kumar',
-      email: 'rahul@student.com',
-      password: hashedPassword,
-      role: 'student',
-      schoolId: 'school-1',
-      schoolName: 'Green Valley High School',
-      classGrade: '10th Grade',
-      ecoPoints: 450,
-      level: 3,
-      badges: ['first-lesson', 'quiz-master'],
-      completedLessons: ['lesson-1', 'lesson-2'],
-      completedQuizzes: ['quiz-1'],
-      completedChallenges: ['challenge-1'],
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'demo-teacher-1',
-      name: 'Dr. Priya Sharma',
-      email: 'priya@teacher.com',
-      password: hashedPassword,
-      role: 'teacher',
-      schoolId: 'school-1',
-      schoolName: 'Green Valley High School',
-      ecoPoints: 0,
-      level: 1,
-      badges: [],
-      completedLessons: [],
-      completedQuizzes: [],
-      completedChallenges: [],
-      createdAt: new Date().toISOString(),
-      status: 'pending',
-    },
-    {
-      id: 'demo-admin-1',
-      name: 'Principal Rajesh Verma',
-      email: 'rajesh@admin.com',
-      password: hashedPassword,
-      role: 'admin',
-      schoolId: 'school-1',
-      schoolName: 'Green Valley High School',
-      ecoPoints: 0,
-      level: 1,
-      badges: [],
-      completedLessons: [],
-      completedQuizzes: [],
-      completedChallenges: [],
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  for (const user of demoUsers) {
-    await saveUser(user);
-  }
-}
-
-async function ensureDefaultSuperAdmin(): Promise<void> {
-  const defaultEmail = 'superadmin@ecolearn.com';
-  const users = isSupabaseConfigured() ? await getAllUsers() : getAllUsersSync();
-  const existing = users.find(
-    (u) => u.email?.toLowerCase() === defaultEmail.toLowerCase()
-  );
-  if (existing) {
-    return;
-  }
-
-  const hashedPassword = await hashPassword('password123');
-  const newSuperAdmin: User = {
-    id: `super-admin-${Date.now()}`,
-    name: 'EcoLearn Super Admin',
-    email: defaultEmail,
-    password: hashedPassword,
-    role: 'super_admin',
-    schoolId: PLATFORM_SCHOOL_ID,
-    schoolName: PLATFORM_SCHOOL_NAME,
-    ecoPoints: 0,
-    level: 1,
-    badges: [],
-    completedLessons: [],
-    completedQuizzes: [],
-    completedChallenges: [],
-    createdAt: new Date().toISOString(),
-    status: 'active',
-  };
-
-  await saveUser(newSuperAdmin);
 }
 
 async function normalizeSuperAdmins(): Promise<void> {
