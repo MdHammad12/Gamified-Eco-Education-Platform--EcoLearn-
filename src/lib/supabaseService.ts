@@ -163,6 +163,43 @@ export async function updateUserPointsInSupabase(userId: string, pointsToAdd: nu
   }
 }
 
+// NEW FUNCTION: Update completed lessons in Supabase
+export async function updateCompletedLessonsInSupabase(userId: string, lessonId: string): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase is not configured');
+  }
+
+  // First get the current completed lessons
+  const { data: userData, error: fetchError } = await supabase
+    .from(TABLES.USERS)
+    .select('completed_lessons')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError || !userData) {
+    throw new Error('User not found');
+  }
+
+  const currentLessons = userData.completed_lessons || [];
+  
+  // Add the new lesson if not already completed
+  if (!currentLessons.includes(lessonId)) {
+    const updatedLessons = [...currentLessons, lessonId];
+    
+    const { error } = await supabase
+      .from(TABLES.USERS)
+      .update({
+        completed_lessons: updatedLessons,
+      })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Error updating completed lessons in Supabase:', error);
+      throw error;
+    }
+  }
+}
+
 // Challenge Submissions
 export async function saveSubmissionToSupabase(submission: ChallengeSubmission): Promise<void> {
   if (!isSupabaseConfigured()) {

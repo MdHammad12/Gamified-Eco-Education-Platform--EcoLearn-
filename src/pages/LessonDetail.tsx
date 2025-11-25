@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { getLessonById, markLessonComplete, updateUserPoints, addBadgeToUser } from '@/lib/storage';
+import { updateCompletedLessonsInSupabase } from '@/lib/supabaseService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,10 +36,18 @@ export default function LessonDetail() {
 
   const isCompleted = user.completedLessons.includes(lesson.id);
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!isCompleted) {
       markLessonComplete(user.id, lesson.id);
       updateUserPoints(user.id, lesson.ecoPoints);
+      
+      // Save to Supabase
+      try {
+        await updateCompletedLessonsInSupabase(user.id, lesson.id);
+      } catch (error) {
+        console.error('Failed to save completed lesson to Supabase:', error);
+        // Continue with local update even if Supabase fails
+      }
       
       // Check for first lesson badge
       if (user.completedLessons.length === 0) {
