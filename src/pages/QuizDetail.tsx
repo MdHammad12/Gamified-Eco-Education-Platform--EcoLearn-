@@ -18,7 +18,9 @@ export default function QuizDetail() {
   
   const [quiz, setQuiz] = useState<Quiz | undefined>(undefined);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState<number[]>([]);
+  // FIXED: Changed from array to object to prevent auto-selection bug
+  // Each question index maps to its selected answer index
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
@@ -41,10 +43,12 @@ export default function QuizDetail() {
   const question = quiz.questions[currentQuestion];
   const progress = ((currentQuestion + 1) / quiz.questions.length) * 100;
 
+  // FIXED: Updated to work with object-based storage
   const handleAnswerSelect = (answerIndex: number) => {
-    const newAnswers = [...selectedAnswers];
-    newAnswers[currentQuestion] = answerIndex;
-    setSelectedAnswers(newAnswers);
+    setSelectedAnswers(prev => ({
+      ...prev,
+      [currentQuestion]: answerIndex
+    }));
   };
 
   const handleNext = () => {
@@ -62,7 +66,9 @@ export default function QuizDetail() {
   };
 
   const handleSubmit = () => {
-    const correctAnswers = selectedAnswers.filter(
+    // Convert object to array for scoring
+    const answersArray = quiz.questions.map((_, index) => selectedAnswers[index]);
+    const correctAnswers = answersArray.filter(
       (answer, index) => answer === quiz.questions[index].correctAnswer
     ).length;
     
@@ -96,7 +102,8 @@ export default function QuizDetail() {
   };
 
   if (showResults) {
-    const correctAnswers = selectedAnswers.filter(
+    const answersArray = quiz.questions.map((_, index) => selectedAnswers[index]);
+    const correctAnswers = answersArray.filter(
       (answer, index) => answer === quiz.questions[index].correctAnswer
     ).length;
     const score = Math.round((correctAnswers / quiz.questions.length) * 100);
@@ -163,7 +170,7 @@ export default function QuizDetail() {
               <Button
                 onClick={() => {
                   setCurrentQuestion(0);
-                  setSelectedAnswers([]);
+                  setSelectedAnswers({});
                   setShowResults(false);
                 }}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
@@ -200,7 +207,7 @@ export default function QuizDetail() {
         </CardHeader>
         <CardContent>
           <RadioGroup
-            value={selectedAnswers[currentQuestion]?.toString()}
+            value={selectedAnswers[currentQuestion]?.toString() ?? ''}
             onValueChange={(value) => handleAnswerSelect(parseInt(value))}
           >
             <div className="space-y-3">
